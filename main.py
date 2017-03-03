@@ -9,7 +9,7 @@ def start():
     user = 'barbara@lab804.com.br'
     pwd = getpass.getpass("Enter your password --> ")
 
-    mail = imaplib.IMAP4_SSL('imap.gmail.com')
+    mail = imaplib.IMAP4_SSL('imap.gmail.com', 993)
     mail.login(user, pwd)
     return mail
 
@@ -19,13 +19,12 @@ def conn():
     if c:
         try:
             c.list()
-            c.select("inbox")
             return c
         except imaplib.IMAP4.error as e:
             print ("LOGIN FAILED!!!  %s" % e)
             return False
     else:
-        print("Erro de start")
+        print("Erro de start()")
 
 def new_mail(c):
 
@@ -33,8 +32,12 @@ def new_mail(c):
         typ, data = c.select('inbox')
         print(typ, data)
         num_msgs = int(data[0])
-        print('There are {} messages in INBOX'.format(num_msgs))
-        return num_msgs
+        if num_msgs == 0:
+            print("Não ha novos emails")
+            return 0
+        else:
+            print('There are {} messages in INBOX'.format(num_msgs))
+            return num_msgs
 
 def get_mail(c):
 
