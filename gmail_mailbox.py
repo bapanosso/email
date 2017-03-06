@@ -1,25 +1,27 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 
 import imaplib
-import time
-import uuid
-import email
 import getpass
-import re
+import requests
+import re, os
+
+session = requests.Session()
 
 IMAP_SERVER = 'imap.gmail.com'
 IMAP_PORT = '993'
 IMAP_USE_SSL = True
 FROM = '(FROM "dados_pcd@cemaden.gov.br")'
 email_address = "dados_pcd@cemaden.gov.br"
-link_re = re.compile (rb'href=\'(.*)?\'')
+link_re = re.compile(rb'href=\'(.*)?\'')
+
 class Gmail(object):
 
     def __init__(self, user, password):
         self.user = user
         self.password = password
-        self.ret = []
+        self.cont = 0
         if IMAP_USE_SSL:
             self.imap = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
         else:
@@ -27,7 +29,6 @@ class Gmail(object):
 
     def __enter__(self):
         self.imap.login(self.user, self.password)
-        self.imap.list()
         self.imap.select('Inbox')
         return self
 
@@ -38,11 +39,6 @@ class Gmail(object):
     def get_count(self):
         status, data = self.imap.search(None, FROM)
         return sum(1 for num in data[0].split())
-
-    def fetch_message(self, num):
-        status, data = self.imap.fetch(str(num), '(RFC822)')
-        email_msg = email.message_from_string(data[0][1])
-        return email_msg
 
     def delete_message(self, num):
         self.imap.store(num, '+FLAGS', r'\Deleted')
@@ -60,30 +56,18 @@ class Gmail(object):
             status, data = self.imap.fetch(num, '(RFC822)')
             print ('Message %s\n%s\n' % (num, data[0][1]))
             link = self.search_link(data[0][1])
-            print (link)
-            time.sleep(2)
+            csv = self.download_file(link)
+            if csv:
+                print("Download file success")
+            else:
+                print("Error download file")
 
-    def search_link(self, data):
-        self.ret = link_re.findall(data)
-        return self.ret
-
-    def get_latest_email_sent_to(self, email_address, timeout=300, poll=1):
-        start_time = time.time()
-        while ((time.time() - start_time) < timeout):
-            status, data = self.imap.select('Inbox')
-            if status != 'OK':
-                time.sleep(poll)
-                continue
-            status, data = self.imap.search(None, 'TO', email_address)
-            data = [d for d in data if d is not None]
-            if status == 'OK' and data:
-                for num in reversed(data[0].split()):
-                    status, data = self.imap.fetch(num, '(RFC822)')
-                    email_msg = email.message_from_string(data[0][1])
-                    return email_msg
-            time.sleep(poll)
-        raise AssertionError("No email sent to '%s' found in inbox "
-             "after polling for %s seconds." % (email_address, timeout))
+    @staticmethod
+    def search_link(data):
+        link = link_re.findall(data)
+        result = (b''.join(link).decode())
+        print(result)
+        return result
 
     def delete_msgs_sent_to(self, email_address):
         status, data = self.imap.search(None, 'TO', email_address)
@@ -93,6 +77,24 @@ class Gmail(object):
                 self.imap.store(num, '+FLAGS', r'\Deleted')
         self.imap.expunge()
 
+    staticmethod
+    def filename(url):
+        link = self.search_name(url)
+        print (link)
+        return link
+
+    def download_file(self, url):
+        linkname = url.split('/')[-1]
+        local_filename = ('%s.csv' % linkname)
+        r = session.get(url, stream=True)
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+                    f.close()
+                    return True
+                else:
+                    return False
 
 if __name__ == '__main__':
     imap_username = 'barbara@lab804.com.br'
