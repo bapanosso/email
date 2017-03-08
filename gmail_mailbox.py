@@ -59,6 +59,8 @@ class Gmail(object):
             csv = self.download_file(link)
             if csv:
                 print("Download file success")
+                self.delete_message(num)
+                print("Email deletado")
             else:
                 print("Error download file")
 
@@ -97,7 +99,7 @@ class Gmail(object):
                     return False
 
 if __name__ == '__main__':
-    imap_username = 'barbara@lab804.com.br'
+    imap_username = 'scraping.camaden@gmail.com'
     imap_password = getpass.getpass("Enter your password --> ")
     with Gmail(imap_username, imap_password) as mail:
         print (mail.get_count())
